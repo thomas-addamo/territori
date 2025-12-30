@@ -81,7 +81,50 @@
         <section class="screen" id="screen-territory"></section>
         <section class="screen" id="screen-street"></section>
         <section class="screen" id="screen-portone"></section>
+        <section class="screen" id="screen-hours"></section>
       </main>
+
+      <nav class="tabbar is-hidden" id="tabbar" aria-label="Menu principale">
+        <button class="tabbar-item" data-tab="territories" aria-label="Territori">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M5 7.5l7-4 7 4v8.5l-7 4-7-4V7.5z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M12 3.5v16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span>Territori</span>
+        </button>
+        <button class="tabbar-item" data-tab="hours" aria-label="Ore">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle
+              cx="12"
+              cy="12"
+              r="8.5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+            />
+            <path
+              d="M12 7.5v5l3.2 1.8"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span>Ore</span>
+        </button>
+      </nav>
 
       <div class="sheet" id="sheet">
         <div class="sheet-backdrop" data-sheet-close></div>

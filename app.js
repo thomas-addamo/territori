@@ -8,6 +8,12 @@ const STATUS_OPTIONS = [
   { value: "avoid", label: "Da evitare", short: "E" },
 ];
 
+const PIONEER_TYPES = [
+  { value: "auxiliary", label: "Pioniere Ausiliare" },
+  { value: "special", label: "Pioniere Speciale" },
+  { value: "regular", label: "Pioniere Regolare" },
+];
+
 const state = {
   screen: "auth",
   history: [],
@@ -16,6 +22,8 @@ const state = {
   currentBuildingId: null,
   workingBuilding: null,
   isDirty: false,
+  hoursDraft: null,
+  hoursDirty: false,
 };
 
 let data = loadData();
@@ -26,11 +34,14 @@ const screens = {
   territory: document.getElementById("screen-territory"),
   street: document.getElementById("screen-street"),
   portone: document.getElementById("screen-portone"),
+  hours: document.getElementById("screen-hours"),
 };
 
 const topbar = document.getElementById("topbar");
 const topbarTitle = document.getElementById("topbarTitle");
 const backButton = document.getElementById("backButton");
+const tabbar = document.getElementById("tabbar");
+const tabButtons = document.querySelectorAll("[data-tab]");
 const sheet = document.getElementById("sheet");
 const sheetTitle = document.getElementById("sheetTitle");
 const sheetBody = document.getElementById("sheetBody");
@@ -108,8 +119,23 @@ function updateTopbar() {
     const building = getCurrentBuilding();
     topbarTitle.textContent = building ? `Portone ${building.civic}` : "Portone";
   }
+  if (state.screen === "hours") {
+    topbarTitle.textContent = "Ore di servizio";
+  }
 
   backButton.style.visibility = state.history.length ? "visible" : "hidden";
+  updateTabbar();
+}
+
+function updateTabbar() {
+  if (!tabbar) {
+    return;
+  }
+  tabbar.classList.toggle("is-hidden", state.screen === "auth");
+  const activeTab = state.screen === "hours" ? "hours" : "territories";
+  tabButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.tab === activeTab);
+  });
 }
 
 function navigate(screen, params = {}) {
@@ -180,6 +206,9 @@ function renderCurrent() {
   if (state.screen === "portone") {
     renderPortone();
   }
+  if (state.screen === "hours") {
+    renderHours();
+  }
 }
 
 function renderAuth() {
@@ -199,9 +228,10 @@ function renderTerritories() {
 
   user.territories = user.territories || [];
   const territoryCards = user.territories.map((territory) => {
+    territory.streets = territory.streets || [];
     const streetCount = territory.streets.length;
     const buildingCount = territory.streets.reduce(
-      (sum, street) => sum + street.buildings.length,
+      (sum, street) => sum + (street.buildings ? street.buildings.length : 0),
       0
     );
 
@@ -211,6 +241,7 @@ function renderTerritories() {
           <div class="list-title">${territory.name}</div>
           <div class="list-meta">${formatTerritoryMeta(territory)}</div>
           <div class="list-meta">${streetCount} vie - ${buildingCount} portoni</div>
+          <div class="list-meta">${formatUpdatedAt(territory.updatedAt)}</div>
         </div>
         <div class="chip">Apri</div>
       </div>
@@ -223,6 +254,7 @@ function renderTerritories() {
         <div class="hero-title">Ciao ${user.name}</div>
         <div class="hero-meta">Gestisci i tuoi territori e salva i dati in locale.</div>
         <div class="hero-meta">Ricorda di esportare un file quando hai finito.</div>
+        <div class="hero-meta">Oggi: ${formatToday()}</div>
       </div>
 
       <div class="action-row">
@@ -268,6 +300,8 @@ function renderTerritories() {
       data.sessionUserId = null;
       saveData();
       state.history = [];
+      state.hoursDraft = null;
+      state.hoursDirty = false;
       navigate("auth", { skipHistory: true });
     });
 }
@@ -300,6 +334,7 @@ function renderTerritory() {
         <div class="hero-title">${territory.name}</div>
         <div class="hero-meta">${formatTerritoryMeta(territory)}</div>
         <div class="hero-meta">${territory.description || "Nessuna descrizione"}</div>
+        <div class="hero-meta">${formatUpdatedAt(territory.updatedAt)}</div>
       </div>
 
       <div class="action-row">
@@ -356,6 +391,7 @@ function renderStreet() {
         <div>
           <div class="list-title">${street.name} ${building.civic}</div>
           <div class="list-meta">${summary}</div>
+          <div class="list-meta">${formatUpdatedAt(building.updatedAt)}</div>
         </div>
         <div class="chip">Apri</div>
       </div>
@@ -493,6 +529,103 @@ function renderPortone() {
     .addEventListener("click", discardPortone);
 }
 
+function renderHours() {
+  const user = getCurrentUser();
+  if (!user) {
+    navigate("auth", { skipHistory: true });
+    return;
+  }
+
+  ensureHoursDraft(user);
+  const monthCards = state.hoursDraft.map((month) => {
+    const tags = [];
+    if (month.pioneerType === "auxiliary" && month.supervisorVisit) {
+      tags.push("Visita del sorvegliante");
+    }
+
+    return `
+      <div class="card month-card" data-month-id="${month.id}">
+        <div class="month-header">
+          <div class="month-title">${month.monthName} ${month.year}</div>
+          <div class="month-meta">${getPioneerLabel(month.pioneerType)}</div>
+          <div class="month-meta">${formatUpdatedAt(month.updatedAt)}</div>
+          ${
+            tags.length
+              ? `<div class="month-tags">${tags
+                  .map((tag) => `<span class="tag">${tag}</span>`)
+                  .join("")}</div>`
+              : ""
+          }
+        </div>
+        <div class="counter-grid">
+          <div class="counter-block">
+            <div class="counter-label">Ore</div>
+            <div class="counter-controls">
+              <button class="counter-btn" data-month-id="${month.id}" data-counter="hours" data-delta="-1">-</button>
+              <div class="counter-value">${month.hours || 0}h</div>
+              <button class="counter-btn" data-month-id="${month.id}" data-counter="hours" data-delta="1">+</button>
+            </div>
+          </div>
+          <div class="counter-block">
+            <div class="counter-label">Minuti</div>
+            <div class="counter-controls">
+              <button class="counter-btn" data-month-id="${month.id}" data-counter="minutes" data-delta="-1">-</button>
+              <div class="counter-value">${month.minutes || 0}m</div>
+              <button class="counter-btn" data-month-id="${month.id}" data-counter="minutes" data-delta="1">+</button>
+            </div>
+          </div>
+        </div>
+        <div class="month-actions">
+          <button class="btn danger" data-delete-month="${month.id}">Elimina mese</button>
+        </div>
+      </div>
+    `;
+  });
+
+  screens.hours.innerHTML = `
+    <div class="screen-content">
+      <div class="card hero-card">
+        <div class="hero-title">Ore di servizio</div>
+        <div class="hero-meta">Registra le ore mese per mese.</div>
+        ${state.hoursDirty ? `<div class="hero-meta">Modifiche non salvate: premi Salva ore.</div>` : ""}
+      </div>
+
+      <div class="action-row">
+        <button class="btn primary" id="addMonthBtn">Aggiungi mese</button>
+        <button class="btn ghost" id="saveHoursBtn">Salva ore</button>
+      </div>
+
+      <div class="list">
+        ${monthCards.join("") || `<div class="empty">Nessun mese registrato.</div>`}
+      </div>
+    </div>
+  `;
+
+  screens.hours
+    .querySelector("#addMonthBtn")
+    .addEventListener("click", openMonthForm);
+
+  screens.hours
+    .querySelector("#saveHoursBtn")
+    .addEventListener("click", saveHours);
+
+  screens.hours.querySelectorAll(".counter-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const monthId = button.dataset.monthId;
+      const counter = button.dataset.counter;
+      const delta = Number(button.dataset.delta);
+      adjustMonthTime(monthId, counter, delta);
+    });
+  });
+
+  screens.hours.querySelectorAll("[data-delete-month]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const monthId = button.dataset.deleteMonth;
+      deleteMonth(monthId);
+    });
+  });
+}
+
 function getCurrentUser() {
   if (!data.sessionUserId) {
     return null;
@@ -567,6 +700,79 @@ function summarizeBuilding(building) {
 function getStatusShort(status) {
   const match = STATUS_OPTIONS.find((option) => option.value === status);
   return match ? match.short : "-";
+}
+
+function getPioneerLabel(value) {
+  const match = PIONEER_TYPES.find((type) => type.value === value);
+  return match ? match.label : "Pioniere";
+}
+
+function ensureHoursDraft(user) {
+  if (!state.hoursDraft) {
+    user.hours = user.hours || [];
+    state.hoursDraft = JSON.parse(JSON.stringify(user.hours));
+  }
+}
+
+function saveHours() {
+  const user = getCurrentUser();
+  if (!user) {
+    return;
+  }
+  ensureHoursDraft(user);
+
+  if (!state.hoursDirty) {
+    showToast("Nessuna modifica da salvare");
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const saved = state.hoursDraft.map((month) => {
+    const cleaned = { ...month };
+    if (cleaned.isDirty || !cleaned.updatedAt) {
+      cleaned.updatedAt = now;
+    }
+    delete cleaned.isDirty;
+    return cleaned;
+  });
+
+  user.hours = saved;
+  saveData();
+  state.hoursDraft = JSON.parse(JSON.stringify(user.hours));
+  state.hoursDirty = false;
+  renderHours();
+  showToast("Ore salvate");
+}
+
+function deleteMonth(monthId) {
+  const user = getCurrentUser();
+  if (!user) {
+    return;
+  }
+  ensureHoursDraft(user);
+  const month = state.hoursDraft.find((item) => item.id === monthId);
+  if (!month) {
+    return;
+  }
+
+  const confirmDelete = window.confirm(
+    `Eliminare il mese \"${month.monthName} ${month.year}\"?`
+  );
+  if (!confirmDelete) {
+    return;
+  }
+
+  state.hoursDraft = state.hoursDraft.filter((item) => item.id !== monthId);
+  state.hoursDirty = true;
+  renderHours();
+  showToast("Mese rimosso");
+}
+
+function touchTerritory(territory) {
+  if (!territory) {
+    return;
+  }
+  territory.updatedAt = new Date().toISOString();
 }
 
 function buildNumbers(from, to, mode) {
@@ -662,7 +868,9 @@ function openTerritoryForm(territory = null) {
       territory.city = payload.city;
       territory.zone = payload.zone;
       territory.description = payload.description;
+      touchTerritory(territory);
     } else {
+      const now = new Date().toISOString();
       user.territories = user.territories || [];
       user.territories.push({
         id: uid(),
@@ -671,6 +879,7 @@ function openTerritoryForm(territory = null) {
         zone: payload.zone,
         description: payload.description,
         streets: [],
+        updatedAt: now,
       });
     }
 
@@ -754,6 +963,7 @@ function openStreetForm(territory) {
       buildings,
     });
 
+    touchTerritory(territory);
     saveData();
     closeSheet();
     renderCurrent();
@@ -761,6 +971,133 @@ function openStreetForm(territory) {
   });
 
   openSheet();
+}
+
+function openMonthForm() {
+  sheetTitle.textContent = "Nuovo mese";
+  sheetBody.innerHTML = `
+    <form class="form is-active" id="monthForm">
+      <div class="field">
+        <label>Mese</label>
+        <input name="month" placeholder="Es. Marzo" required />
+      </div>
+      <div class="field">
+        <label>Anno</label>
+        <input name="year" type="number" min="2000" max="2100" required />
+      </div>
+      <div class="field">
+        <label>Tipo di pioniere</label>
+        <div class="radio-grid">
+          ${PIONEER_TYPES.map(
+            (type, index) => `
+              <label class="radio-item">
+                <input type="radio" name="pioneerType" value="${type.value}" ${
+                  index === 0 ? "checked" : ""
+                } />
+                <span>${type.label}</span>
+              </label>
+            `
+          ).join("")}
+        </div>
+      </div>
+      <label class="toggle" id="supervisorToggle">
+        <input type="checkbox" name="supervisorVisit" />
+        <span>Visita del sorvegliante</span>
+      </label>
+      <div class="sheet-actions">
+        <button type="button" class="btn ghost" data-sheet-close>Annulla</button>
+        <button type="submit" class="btn primary">Salva mese</button>
+      </div>
+    </form>
+  `;
+
+  const form = sheetBody.querySelector("#monthForm");
+  const supervisorToggle = form.querySelector("input[name='supervisorVisit']");
+
+  const syncSupervisor = () => {
+    const type = form.elements.pioneerType.value;
+    const isAuxiliary = type === "auxiliary";
+    supervisorToggle.disabled = !isAuxiliary;
+    if (!isAuxiliary) {
+      supervisorToggle.checked = false;
+    }
+  };
+
+  syncSupervisor();
+  form.querySelectorAll("input[name='pioneerType']").forEach((radio) => {
+    radio.addEventListener("change", syncSupervisor);
+  });
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+    const monthName = formData.get("month").trim();
+    const year = Number(formData.get("year"));
+    const pioneerType = formData.get("pioneerType");
+    const supervisorVisit = Boolean(formData.get("supervisorVisit"));
+
+    if (!monthName || !year) {
+      showToast("Completa i campi richiesti");
+      return;
+    }
+
+    const user = getCurrentUser();
+    if (!user) {
+      return;
+    }
+
+    ensureHoursDraft(user);
+    state.hoursDraft.push({
+      id: uid(),
+      monthName,
+      year,
+      pioneerType,
+      supervisorVisit,
+      hours: 0,
+      minutes: 0,
+      updatedAt: null,
+      isDirty: true,
+    });
+
+    state.hoursDirty = true;
+    closeSheet();
+    renderHours();
+    showToast("Mese aggiunto");
+  });
+
+  openSheet();
+}
+
+function adjustMonthTime(monthId, counter, delta) {
+  const user = getCurrentUser();
+  if (!user) {
+    return;
+  }
+  ensureHoursDraft(user);
+  const month = state.hoursDraft.find((item) => item.id === monthId);
+  if (!month) {
+    return;
+  }
+
+  const currentHours = Number(month.hours) || 0;
+  const currentMinutes = Number(month.minutes) || 0;
+  let totalMinutes = currentHours * 60 + currentMinutes;
+
+  if (counter === "hours") {
+    totalMinutes += delta * 60;
+  } else {
+    totalMinutes += delta;
+  }
+
+  if (totalMinutes < 0) {
+    totalMinutes = 0;
+  }
+
+  month.hours = Math.floor(totalMinutes / 60);
+  month.minutes = totalMinutes % 60;
+  month.isDirty = true;
+  state.hoursDirty = true;
+  renderHours();
 }
 
 function deleteTerritory() {
@@ -813,6 +1150,7 @@ function deleteStreet() {
   territory.streets = (territory.streets || []).filter(
     (item) => item.id !== street.id
   );
+  touchTerritory(territory);
   saveData();
   state.currentStreetId = null;
   state.currentBuildingId = null;
@@ -963,6 +1301,7 @@ function savePortone() {
   if (!street) {
     return;
   }
+  const territory = getCurrentTerritory();
   const index = street.buildings.findIndex(
     (item) => item.id === state.currentBuildingId
   );
@@ -971,6 +1310,9 @@ function savePortone() {
   }
   state.workingBuilding.updatedAt = new Date().toISOString();
   street.buildings[index] = state.workingBuilding;
+  if (territory) {
+    touchTerritory(territory);
+  }
   saveData();
   state.isDirty = false;
   showToast("Salvato");
@@ -1051,6 +1393,23 @@ function formatDate(value) {
   });
 }
 
+function formatUpdatedAt(value) {
+  if (!value) {
+    return "Ultima modifica: mai";
+  }
+  const formatted = formatDate(value);
+  return formatted ? `Ultima modifica: ${formatted}` : "Ultima modifica: mai";
+}
+
+function formatToday() {
+  const today = new Date();
+  return today.toLocaleDateString("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 function setupAuth() {
   authTabs.forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -1086,6 +1445,8 @@ function setupAuth() {
     data.sessionUserId = user.id;
     saveData();
     state.history = [];
+    state.hoursDraft = null;
+    state.hoursDirty = false;
     navigate("territories", { skipHistory: true });
   });
 
@@ -1115,13 +1476,58 @@ function setupAuth() {
       surname,
       password,
       territories: [],
+      hours: [],
     };
 
     data.users.push(newUser);
     data.sessionUserId = newUser.id;
     saveData();
     state.history = [];
+    state.hoursDraft = null;
+    state.hoursDirty = false;
     navigate("territories", { skipHistory: true });
+  });
+}
+
+function switchTab(tab) {
+  if (state.screen === "portone" && state.isDirty) {
+    const confirmLeave = window.confirm(
+      "Modifiche non salvate. Vuoi uscire senza salvare?"
+    );
+    if (!confirmLeave) {
+      return;
+    }
+  }
+  if (state.screen === "hours" && state.hoursDirty) {
+    const confirmLeave = window.confirm(
+      "Ore non salvate. Vuoi uscire senza salvare?"
+    );
+    if (!confirmLeave) {
+      return;
+    }
+    state.hoursDraft = null;
+    state.hoursDirty = false;
+  }
+
+  state.history = [];
+  state.currentTerritoryId = null;
+  state.currentStreetId = null;
+  state.currentBuildingId = null;
+  state.workingBuilding = null;
+  state.isDirty = false;
+
+  if (tab === "hours") {
+    navigate("hours", { skipHistory: true });
+  } else {
+    navigate("territories", { skipHistory: true });
+  }
+}
+
+function setupTabs() {
+  tabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      switchTab(button.dataset.tab);
+    });
   });
 }
 
@@ -1137,6 +1543,7 @@ document.addEventListener("click", (event) => {
 });
 
 setupAuth();
+setupTabs();
 
 if (data.sessionUserId) {
   navigate("territories", { skipHistory: true });

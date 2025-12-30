@@ -88,6 +88,7 @@ body {
 .main {
   position: relative;
   z-index: 1;
+  padding-bottom: 120px;
 }
 
 .topbar {
@@ -473,6 +474,142 @@ body {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.tabbar {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  padding: 10px 16px;
+  border-radius: 34px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.55));
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 22px 50px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(24px);
+  z-index: 8;
+}
+
+.tabbar.is-hidden {
+  display: none;
+}
+
+.tabbar-item {
+  border: none;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 20px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.tabbar-item svg {
+  width: 22px;
+  height: 22px;
+}
+
+.tabbar-item.is-active {
+  color: var(--accent);
+  background: rgba(11, 77, 138, 0.12);
+  transform: translateY(-2px);
+}
+
+.month-card {
+  display: grid;
+  gap: 14px;
+}
+
+.month-header {
+  display: grid;
+  gap: 6px;
+}
+
+.month-title {
+  font-weight: 600;
+  font-size: 17px;
+}
+
+.month-meta {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.month-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.counter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.counter-block {
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.counter-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.counter-controls {
+  display: grid;
+  grid-template-columns: 34px 1fr 34px;
+  align-items: center;
+  gap: 8px;
+}
+
+.counter-btn {
+  border: none;
+  background: rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+}
+
+.counter-value {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.month-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .sheet {
