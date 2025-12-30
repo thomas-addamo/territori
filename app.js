@@ -434,6 +434,8 @@ function renderPortone() {
       <div class="toolbar">
         <button class="btn ghost" id="addRowBtn">Aggiungi riga</button>
         <button class="btn ghost" id="addColBtn">Aggiungi colonna</button>
+        <button class="btn ghost" id="removeRowBtn">Rimuovi riga</button>
+        <button class="btn ghost" id="removeColBtn">Rimuovi colonna</button>
       </div>
 
       <div class="card">
@@ -472,6 +474,14 @@ function renderPortone() {
 
   screens.portone.querySelector("#addColBtn").addEventListener("click", () => {
     addCol();
+  });
+
+  screens.portone.querySelector("#removeRowBtn").addEventListener("click", () => {
+    removeRow();
+  });
+
+  screens.portone.querySelector("#removeColBtn").addEventListener("click", () => {
+    removeCol();
   });
 
   screens.portone
@@ -911,6 +921,38 @@ function addCol() {
     newCells.push({ status: "none", leafletLeft: false });
   }
   building.cols += 1;
+  building.cells = newCells;
+  state.isDirty = true;
+  renderPortone();
+}
+
+function removeRow() {
+  const building = state.workingBuilding;
+  if (building.rows <= 1) {
+    showToast("Serve almeno una riga");
+    return;
+  }
+  building.rows -= 1;
+  building.cells = building.cells.slice(0, building.rows * building.cols);
+  state.isDirty = true;
+  renderPortone();
+}
+
+function removeCol() {
+  const building = state.workingBuilding;
+  if (building.cols <= 1) {
+    showToast("Serve almeno una colonna");
+    return;
+  }
+  const oldCols = building.cols;
+  const newCols = oldCols - 1;
+  const newCells = [];
+  for (let row = 0; row < building.rows; row += 1) {
+    for (let col = 0; col < newCols; col += 1) {
+      newCells.push(building.cells[row * oldCols + col]);
+    }
+  }
+  building.cols = newCols;
   building.cells = newCells;
   state.isDirty = true;
   renderPortone();
