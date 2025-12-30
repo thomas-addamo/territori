@@ -482,7 +482,7 @@ body {
   right: 16px;
   bottom: 16px;
   padding: 10px 16px;
-  border-radius: 34px;
+  border-radius: 44px;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
@@ -503,9 +503,9 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   padding: 8px;
-  border-radius: 20px;
+  border-radius: 44px;
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
@@ -521,7 +521,7 @@ body {
 .tabbar-item.is-active {
   color: var(--accent);
   background: rgba(11, 77, 138, 0.12);
-  transform: translateY(-2px);
+  transform: none;
 }
 
 .month-card {
@@ -679,6 +679,7 @@ body {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
+  z-index: 12;
 }
 
 .toast.is-visible {
