@@ -30,6 +30,7 @@ let data = loadData();
 
 const screens = {
   auth: document.getElementById("screen-auth"),
+  home: document.getElementById("screen-home"),
   territories: document.getElementById("screen-territories"),
   territory: document.getElementById("screen-territory"),
   street: document.getElementById("screen-street"),
@@ -122,6 +123,9 @@ function updateTopbar() {
   if (state.screen === "hours") {
     topbarTitle.textContent = "Ore di servizio";
   }
+  if (state.screen === "home") {
+    topbarTitle.textContent = "Home";
+  }
 
   backButton.style.visibility = state.history.length ? "visible" : "hidden";
   updateTabbar();
@@ -132,7 +136,12 @@ function updateTabbar() {
     return;
   }
   tabbar.classList.toggle("is-hidden", state.screen === "auth");
-  const activeTab = state.screen === "hours" ? "hours" : "territories";
+  let activeTab = "territories";
+  if (state.screen === "hours") {
+    activeTab = "hours";
+  } else if (state.screen === "home") {
+    activeTab = "home";
+  }
   tabButtons.forEach((button) => {
     button.classList.toggle("is-active", button.dataset.tab === activeTab);
   });
@@ -209,6 +218,9 @@ function renderCurrent() {
   if (state.screen === "hours") {
     renderHours();
   }
+  if (state.screen === "home") {
+    renderHome();
+  }
 }
 
 function renderAuth() {
@@ -251,20 +263,12 @@ function renderTerritories() {
   screens.territories.innerHTML = `
     <div class="screen-content">
       <div class="card hero-card">
-        <div class="hero-title">Ciao ${user.name}</div>
-        <div class="hero-meta">Gestisci i tuoi territori e salva i dati in locale.</div>
-        <div class="hero-meta">Ricorda di esportare un file quando hai finito.</div>
-        <div class="hero-meta">Oggi: ${formatToday()}</div>
+        <div class="hero-title">I tuoi territori</div>
+        <div class="hero-meta">Seleziona un territorio o creane uno nuovo.</div>
       </div>
 
       <div class="action-row">
         <button class="btn primary" id="addTerritoryBtn">Nuovo territorio</button>
-        <button class="btn ghost" id="exportBtn">Esporta dati</button>
-        <label class="btn ghost" id="importLabel">
-          Importa
-          <input type="file" id="importInput" accept="application/json" hidden />
-        </label>
-        <button class="btn outline" id="logoutBtn">Esci</button>
       </div>
 
       <div class="list">
@@ -285,32 +289,13 @@ function renderTerritories() {
   screens.territories
     .querySelector("#addTerritoryBtn")
     .addEventListener("click", () => openTerritoryForm());
-
-  screens.territories
-    .querySelector("#exportBtn")
-    .addEventListener("click", exportData);
-
-  screens.territories
-    .querySelector("#importInput")
-    .addEventListener("change", handleImport);
-
-  screens.territories
-    .querySelector("#logoutBtn")
-    .addEventListener("click", () => {
-      data.sessionUserId = null;
-      saveData();
-      state.history = [];
-      state.hoursDraft = null;
-      state.hoursDirty = false;
-      navigate("auth", { skipHistory: true });
-    });
 }
 
 function renderTerritory() {
   const user = getCurrentUser();
   const territory = getCurrentTerritory();
   if (!user || !territory) {
-    navigate("territories", { skipHistory: true });
+    navigate("home", { skipHistory: true });
     return;
   }
 
@@ -529,6 +514,92 @@ function renderPortone() {
     .addEventListener("click", discardPortone);
 }
 
+function renderHome() {
+  const user = getCurrentUser();
+  if (!user) {
+    navigate("auth", { skipHistory: true });
+    return;
+  }
+
+  const latestService = getLatestService(user);
+  const pendingBuildings = getPendingBuildings(user);
+  const totalTime = getCurrentMonthTime(user);
+
+  const pendingCards = pendingBuildings.map((item) => {
+    return `
+      <div class="list-card">
+        <div>
+          <div class="list-title">${item.streetName} ${item.civic}</div>
+          <div class="list-meta">${item.territoryName}</div>
+        </div>
+        <div class="chip">${item.statusLabel}</div>
+      </div>
+    `;
+  });
+
+  screens.home.innerHTML = `
+    <div class="screen-content">
+      <div class="card hero-card">
+        <div class="hero-title">Ciao ${user.name}</div>
+        <div class="hero-meta">Oggi: ${formatToday()}</div>
+        <div class="hero-meta">Ultimo servizio: ${latestService}</div>
+        <div class="hero-meta">Gestisci i tuoi territori e salva i dati in locale.</div>
+        <div class="hero-meta">Ricorda di esportare un file quando hai finito.</div>
+      </div>
+
+      <div class="action-row">
+        <button class="btn ghost" id="exportBtn">Esporta dati</button>
+        <label class="btn ghost" id="importLabel">
+          Importa
+          <input type="file" id="importInput" accept="application/json" hidden />
+        </label>
+        <button class="btn outline" id="logoutBtn">Esci</button>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Ore del mese corrente</div>
+          <div class="stat-value">${totalTime.hours}h ${totalTime.minutes}m</div>
+          <div class="stat-sub">${totalTime.label}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Portoni in sospeso</div>
+          <div class="stat-value">${pendingBuildings.length}</div>
+          <div class="stat-sub">Urgenti e da iniziare</div>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <div class="section-title">Urgenti da completare e da iniziare</div>
+        <div class="section-sub">Prima gli incompleti, poi quelli da iniziare</div>
+      </div>
+
+      <div class="list">
+        ${pendingCards.join("") || `<div class="empty">Nessun portone in sospeso.</div>`}
+      </div>
+    </div>
+  `;
+
+  screens.home
+    .querySelector("#exportBtn")
+    .addEventListener("click", exportData);
+
+  screens.home
+    .querySelector("#importInput")
+    .addEventListener("change", handleImport);
+
+  screens.home
+    .querySelector("#logoutBtn")
+    .addEventListener("click", () => {
+      data.sessionUserId = null;
+      saveData();
+      state.history = [];
+      state.hoursDraft = null;
+      state.hoursDirty = false;
+      navigate("auth", { skipHistory: true });
+    });
+}
+
 function renderHours() {
   const user = getCurrentUser();
   if (!user) {
@@ -705,6 +776,80 @@ function getStatusShort(status) {
 function getPioneerLabel(value) {
   const match = PIONEER_TYPES.find((type) => type.value === value);
   return match ? match.label : "Pioniere";
+}
+
+function getLatestService(user) {
+  let latest = null;
+  (user.territories || []).forEach((territory) => {
+    (territory.streets || []).forEach((street) => {
+      (street.buildings || []).forEach((building) => {
+        if (building.updatedAt) {
+          const timestamp = new Date(building.updatedAt).getTime();
+          if (!Number.isNaN(timestamp) && (!latest || timestamp > latest)) {
+            latest = timestamp;
+          }
+        }
+      });
+    });
+  });
+
+  if (!latest) {
+    return "Mai";
+  }
+  return formatDate(new Date(latest).toISOString());
+}
+
+function getPendingBuildings(user) {
+  const pending = [];
+  (user.territories || []).forEach((territory) => {
+    (territory.streets || []).forEach((street) => {
+      (street.buildings || []).forEach((building) => {
+        const cells = building.cells || [];
+        const hasNotes = cells.some((cell) => cell.status && cell.status !== "none");
+        const isComplete =
+          cells.length > 0 && cells.every((cell) => cell.status && cell.status !== "none");
+        if (!isComplete) {
+          const statusLabel = hasNotes ? "Da finire" : "Da iniziare";
+          pending.push({
+            territoryName: territory.name,
+            streetName: street.name,
+            civic: building.civic,
+            statusLabel,
+            urgency: hasNotes ? 0 : 1,
+          });
+        }
+      });
+    });
+  });
+  return pending.sort((a, b) => a.urgency - b.urgency);
+}
+
+function getCurrentMonthTime(user) {
+  const now = new Date();
+  const monthName = now.toLocaleDateString("it-IT", { month: "long" });
+  const year = now.getFullYear();
+  const label = `${capitalize(monthName)} ${year}`;
+  const match = (user.hours || []).find((month) => {
+    const savedName = String(month.monthName || "").trim().toLowerCase();
+    return savedName === monthName.toLowerCase() && Number(month.year) === year;
+  });
+
+  if (!match) {
+    return { hours: 0, minutes: 0, label };
+  }
+
+  return {
+    hours: Number(match.hours) || 0,
+    minutes: Number(match.minutes) || 0,
+    label,
+  };
+}
+
+function capitalize(value) {
+  if (!value) {
+    return "";
+  }
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function ensureHoursDraft(user) {
@@ -1447,7 +1592,7 @@ function setupAuth() {
     state.history = [];
     state.hoursDraft = null;
     state.hoursDirty = false;
-    navigate("territories", { skipHistory: true });
+    navigate("home", { skipHistory: true });
   });
 
   registerForm.addEventListener("submit", (event) => {
@@ -1515,9 +1660,13 @@ function switchTab(tab) {
   state.currentBuildingId = null;
   state.workingBuilding = null;
   state.isDirty = false;
+  state.hoursDraft = null;
+  state.hoursDirty = false;
 
   if (tab === "hours") {
     navigate("hours", { skipHistory: true });
+  } else if (tab === "home") {
+    navigate("home", { skipHistory: true });
   } else {
     navigate("territories", { skipHistory: true });
   }
@@ -1546,7 +1695,7 @@ setupAuth();
 setupTabs();
 
 if (data.sessionUserId) {
-  navigate("territories", { skipHistory: true });
+  navigate("home", { skipHistory: true });
 } else {
   navigate("auth", { skipHistory: true });
 }

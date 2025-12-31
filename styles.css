@@ -484,7 +484,7 @@ body {
   padding: 10px 16px;
   border-radius: 44px;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.55));
   border: 1px solid rgba(255, 255, 255, 0.7);
@@ -610,6 +610,52 @@ body {
 .month-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.stat-card {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.stat-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.section-header {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.section-title {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.section-sub {
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .sheet {
